@@ -28,9 +28,10 @@ export function hasPerm(permKey) {
 
 export function permsToRouter(permKeys) {
     const routerList = []
+    const userStore = useUserStore();
     Object.keys(routers).forEach(perm => {
         if (permKeys.includes(perm) || permKeys.includes('*')) {
-            routerList.push(...routers[perm])
+            routerList.push(...routers[perm].filter(router => !router.meta.adminOnly || userStore.user.type === 0))
         }
     })
     return routerList;
@@ -67,6 +68,16 @@ const routers = {
             title: 'allUsers',
             name: 'user',
             menu: true
+        }
+    }, {
+        path: '/user-batches',
+        name: 'user-batch',
+        component: () => import('@/views/user-batch/index.vue'),
+        meta: {
+            title: 'batchUsers',
+            name: 'user-batch',
+            menu: true,
+            adminOnly: true
         }
     }],
     'role:query': [{

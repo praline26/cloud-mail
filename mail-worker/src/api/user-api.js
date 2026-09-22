@@ -3,6 +3,7 @@ import userService from '../service/user-service';
 import result from '../model/result';
 import userContext from '../security/user-context';
 import accountService from '../service/account-service';
+import userBatchService from '../service/user-batch-service';
 
 app.delete('/user/delete', async (c) => {
 	await userService.physicsDelete(c, c.req.query());
@@ -31,6 +32,26 @@ app.get('/user/list', async (c) => {
 
 app.post('/user/add', async (c) => {
 	await userService.add(c, await c.req.json());
+	return c.json(result.ok());
+});
+
+app.post('/user/batchAdd', async (c) => {
+	const data = await userBatchService.create(c, await c.req.json());
+	return c.json(result.ok(data));
+});
+
+app.get('/user/batchList', async (c) => {
+	const data = await userBatchService.list(c, c.req.query());
+	return c.json(result.ok(data));
+});
+
+app.get('/user/batchItems', async (c) => {
+	const data = await userBatchService.items(c, c.req.query());
+	return c.json(result.ok(data));
+});
+
+app.delete('/user/batchDelete', async (c) => {
+	await userBatchService.remove(c, c.req.query());
 	return c.json(result.ok());
 });
 

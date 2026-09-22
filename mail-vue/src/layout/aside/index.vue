@@ -44,6 +44,11 @@
           <Icon icon="si:user-alt-2-line" width="20" height="20" />
           <span class="menu-name" style="margin-left: 16px">{{$t('allUsers')}}</span>
         </el-menu-item>
+        <el-menu-item v-if="userStore.user.type === 0" @click="router.push({name: 'user-batch'})" index="user-batch" v-perm="'user:query'"
+                      :class="route.meta.name === 'user-batch' ? 'choose-item' : ''">
+          <Icon icon="fluent:people-add-20-regular" width="21" height="21" />
+          <span class="menu-name" style="margin-left: 15px">{{$t('batchUsers')}}</span>
+        </el-menu-item>
         <el-menu-item @click="router.push({name: 'all-email'})" index="all-email" v-perm="'all-email:query'"
                       :class="route.meta.name === 'all-email' ? 'choose-item' : ''">
           <Icon icon="fluent:mail-list-28-regular" width="22" height="22" />
@@ -74,8 +79,10 @@ import router from "@/router/index.js";
 import { useRoute } from "vue-router";
 import {Icon} from "@iconify/vue";
 import {useSettingStore} from "@/store/setting.js";
+import {useUserStore} from "@/store/user.js";
 
 const settingStore = useSettingStore();
+const userStore = useUserStore();
 const route = useRoute();
 
 </script>
