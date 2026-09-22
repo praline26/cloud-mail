@@ -16,9 +16,9 @@
           style="width: 100%"
       >
         <el-table-column prop="name" :label="$t('batchName')" min-width="160" show-overflow-tooltip />
-        <el-table-column :label="$t('emailPrefix')" min-width="140">
+        <el-table-column :label="$t('emailAccount')" min-width="140">
           <template #default="props">
-            {{ props.row.prefix }}{{ numberPreview(props.row) }}{{ props.row.domain }}
+            {{ batchEmailPattern(props.row) }}
           </template>
         </el-table-column>
         <el-table-column prop="count" :label="$t('batchCount')" width="90" />
@@ -70,29 +70,13 @@
           <el-input v-model="createForm.name" :placeholder="$t('optional')" />
         </el-form-item>
         <div class="form-grid">
-          <el-form-item :label="$t('emailPrefix')">
-            <el-input v-model="createForm.prefix" placeholder="user" />
-          </el-form-item>
           <el-form-item :label="$t('domain')">
             <el-select v-model="createForm.domain" :placeholder="$t('select')">
               <el-option v-for="item in domainList" :key="item" :label="item" :value="item" />
             </el-select>
           </el-form-item>
-        </div>
-        <div class="form-grid">
-          <el-form-item :label="$t('batchStartNo')">
-            <el-input-number v-model="createForm.startNo" :min="0" :max="999999999" />
-          </el-form-item>
-          <el-form-item :label="$t('batchPadLength')">
-            <el-input-number v-model="createForm.padLength" :min="0" :max="12" />
-          </el-form-item>
-        </div>
-        <div class="form-grid">
           <el-form-item :label="$t('batchCount')">
             <el-input-number v-model="createForm.count" :min="1" :max="500" />
-          </el-form-item>
-          <el-form-item :label="$t('batchPasswordLength')">
-            <el-input-number v-model="createForm.passwordLength" :min="6" :max="64" />
           </el-form-item>
         </div>
         <el-form-item :label="$t('perm')">
@@ -100,10 +84,6 @@
             <el-option v-for="item in roleList" :key="item.roleId" :label="item.name" :value="item.roleId" />
           </el-select>
         </el-form-item>
-        <div class="preview">
-          <div class="preview-title">{{ $t('batchPreview') }}</div>
-          <div v-for="email in previewEmails" :key="email" class="preview-email">{{ email }}</div>
-        </div>
         <el-button class="submit-btn" type="primary" :loading="createLoading" @click="createBatch">
           {{ $t('confirm') }}
         </el-button>
@@ -182,14 +162,6 @@ const params = reactive({
 });
 const createForm = reactive(defaultCreateForm());
 const successItems = computed(() => batchItems.value.filter(item => item.status === 0));
-const previewEmails = computed(() => {
-  const count = Math.min(Number(createForm.count) || 0, 3);
-  const list = [];
-  for (let i = 0; i < count; i++) {
-    list.push(buildEmail(Number(createForm.startNo) + i));
-  }
-  return list;
-});
 
 onMounted(() => {
   loadRoles();
@@ -199,12 +171,8 @@ onMounted(() => {
 function defaultCreateForm() {
   return {
     name: '',
-    prefix: '',
     domain: '',
-    startNo: 1,
     count: 10,
-    padLength: 3,
-    passwordLength: 12,
     type: null,
   };
 }
@@ -234,7 +202,6 @@ function resetCreateForm() {
 
 function createBatch() {
   if (createLoading.value) return;
-  if (!createForm.prefix) return showError(t('emptyEmailMsg'));
   if (!createForm.domain) return showError(t('notEmailMsg'));
   if (!createForm.type) return showError(t('emptyRole'));
 
@@ -244,7 +211,7 @@ function createBatch() {
     createShow.value = false;
     currentBatch.value = {
       batchId: data.batchId,
-      name: createForm.name || buildEmail(createForm.startNo),
+      name: createForm.name || `random-${createForm.domain}`,
       createTime: data.createTime,
     };
     batchItems.value = data.items;
@@ -300,18 +267,11 @@ function numChange(num) {
   getBatchList();
 }
 
-function buildEmail(no) {
-  const domain = normalizeDomain(createForm.domain);
-  return `${createForm.prefix}${String(no).padStart(Number(createForm.padLength) || 0, '0')}${domain}`;
-}
-
-function normalizeDomain(domain) {
-  if (!domain) return '';
-  return domain.startsWith('@') ? domain : `@${domain}`;
-}
-
-function numberPreview(batch) {
-  return String(batch.startNo).padStart(batch.padLength || 0, '0');
+function batchEmailPattern(batch) {
+  if (!batch.prefix && batch.padLength === 6 && batch.passwordLength === 8) {
+    return `******${batch.domain}`;
+  }
+  return `${batch.prefix}${String(batch.startNo).padStart(batch.padLength || 0, '0')}${batch.domain}`;
 }
 
 function toRoleName(type) {
@@ -531,23 +491,6 @@ function showError(message) {
   @media (max-width: 560px) {
     grid-template-columns: 1fr;
   }
-}
-
-.preview {
-  border: 1px solid var(--el-border-color);
-  border-radius: 6px;
-  padding: 10px 12px;
-  color: var(--el-text-color-regular);
-}
-
-.preview-title {
-  color: var(--el-text-color-secondary);
-  margin-bottom: 6px;
-}
-
-.preview-email {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  line-height: 1.8;
 }
 
 .submit-btn {

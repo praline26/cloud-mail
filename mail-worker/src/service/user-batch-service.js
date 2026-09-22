@@ -1,10 +1,10 @@
 import BizError from '../error/biz-error';
 import userService from './user-service';
 import { t } from '../i18n/i18n';
+import { genEmailName, genPassword } from '../utils/account-credential-utils';
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
-const passwordChars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*';
 
 const userBatchService = {
 	async ensureTables(c) {
@@ -78,11 +78,11 @@ const userBatchService = {
 		let failCount = 0;
 
 		for (let i = 0; i < options.count; i++) {
-			const no = options.startNo + i;
-			const email = `${options.prefix}${String(no).padStart(options.padLength, '0')}${options.domain}`;
-			const password = this.genPassword(options.passwordLength);
+			let email = '';
+			const password = genPassword();
 
 			try {
+				email = await this.genUniqueEmail(c, options.domain, items);
 				await userService.add(c, { email, type: options.type, password });
 				const userRow = await userService.selectByEmail(c, email);
 				const encrypted = await this.encryptPassword(c, password);
@@ -117,36 +117,38 @@ const userBatchService = {
 	},
 
 	normalizeCreateParams(c, params) {
-		let { name, prefix, domain, startNo, count, padLength, passwordLength, type } = params;
-		prefix = String(prefix || '').trim();
+		let { name, domain, count, type } = params;
 		domain = String(domain || '').trim();
 		name = String(name || '').trim();
-		startNo = Number(startNo);
 		count = Number(count);
-		padLength = Number(padLength);
-		passwordLength = Number(passwordLength);
 		type = Number(type);
 
-		if (!prefix) throw new BizError('prefix cannot be empty');
 		if (!domain) throw new BizError(t('notEmailDomain'));
 		if (!domain.startsWith('@')) domain = `@${domain}`;
 		if (!c.env.domain.includes(domain.substring(1))) throw new BizError(t('notEmailDomain'));
-		if (!Number.isInteger(startNo) || startNo < 0) throw new BizError('startNo must be a non-negative integer');
 		if (!Number.isInteger(count) || count < 1 || count > 500) throw new BizError('count must be between 1 and 500');
-		if (!Number.isInteger(padLength) || padLength < 0 || padLength > 12) throw new BizError('padLength must be between 0 and 12');
-		if (!Number.isInteger(passwordLength) || passwordLength < 6 || passwordLength > 64) throw new BizError(t('pwdMinLength'));
 		if (!Number.isInteger(type) || type < 1) throw new BizError(t('roleNotExist'));
 
 		return {
-			name: name || `${prefix}${String(startNo).padStart(padLength, '0')}${domain}`,
-			prefix,
+			name: name || `random-${domain.substring(1)}`,
+			prefix: '',
 			domain,
-			startNo,
+			startNo: 0,
 			count,
-			padLength,
-			passwordLength,
+			padLength: 6,
+			passwordLength: 8,
 			type
 		};
+	},
+
+	async genUniqueEmail(c, domain, items) {
+		const generated = new Set(items.map(item => item.email.toLowerCase()));
+		for (let attempt = 0; attempt < 20; attempt++) {
+			const email = `${genEmailName()}${domain}`;
+			if (generated.has(email.toLowerCase())) continue;
+			if (!await userService.selectByEmailIncludeDel(c, email)) return email;
+		}
+		throw new BizError('failed to generate a unique email');
 	},
 
 	async list(c, params) {
@@ -220,12 +222,6 @@ const userBatchService = {
 			FROM user_batch
 			WHERE batch_id = ?
 		`).bind(batchId).first();
-	},
-
-	genPassword(length) {
-		const bytes = new Uint8Array(length);
-		crypto.getRandomValues(bytes);
-		return Array.from(bytes, byte => passwordChars[byte % passwordChars.length]).join('');
 	},
 
 	async getCryptoKey(c) {
